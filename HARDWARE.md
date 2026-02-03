@@ -12,23 +12,23 @@
 
 * GAL/ULA/ TTL Glue logic ICs
 
-## I/O ports found
+## I/O ports
 
  - 0x00 Serial Port baudrate setup
 
  - 0x20 Timex Interface for ZX Spectrum
+ 
+    LS273/LS244 I/O buffer latch pair (same as in interface)
 
     * 6 bit I/O port
     * on RX side, D7 contains Data Ready signal from Floppy Disc Controller
-    * (data bits don't match one to one)
+    * (data bits don't match one to one from interface)
 
- - 0x40 Serial Port 1 control or data
+ - 0x40 Serial Port 1 control/data
 
- - 0x80 Serial Port 2 control or data
+ - 0x80 Serial Port 2 control/data
 
- - 0xC0 WD1770 
-
-    * FDC base I/O port address
+ - 0xC0 WD1770 Floppy Disk Controller
 
  - 0xE0 FDD control output latch
 
