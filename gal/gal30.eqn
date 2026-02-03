@@ -1,0 +1,42 @@
+GAL16V8
+TIMEX-GAL30
+; Timex FDD Mainboard GAL30
+
+;**** INPUT PINS ****
+;PIN 1   = NC;      
+;PIN 2   = INTRQ;   INTerrupt ReQuest
+;PIN 3   = A5;      A5
+;PIN 4   = CX;      active low when A6 and A7 high
+;PIN 5   = WR;      WR
+;PIN 6   = MREQ;    MREQ
+;PIN 7   = A13;     A13
+;PIN 8   = BOOT;    BOOT
+;PIN 9   = RD;      RD
+;PIN 10  = GND;
+;PIN 11  = OX;      active low when A6 and A7 low
+;
+;**** OUTPUT PINS ****
+;PIN 12  = TIOUT    Interface Output Latch
+;PIN 13  = TIIN     Interface Input Latch
+;PIN 14  = RSCS3    Serial Port select?
+;PIN 15  = ROMCS    ROM CS
+;PIN 16  = E0       FDD output latch
+;PIN 17  = RAMSEL   RAM CS
+;PIN 18  = FDC      FDC CS
+;PIN 19  = INT      Inverted INTRQ
+;PIN 20  = VCC;
+
+NC INTRQ A5 CX WR MREQ A13 BOOT RD GND
+OX TIOUT TIIN RSCS3 ROMCS E0 RAMSEL FDC INT VCC 
+
+/INT = INTRQ
+/FDC = /A5 * /CX
+/RAMSEL = (/A13 * /BOOT */MREQ) + MREQ
+/E0 = A5 * /CX * /WR
+/ROMCS = /MREQ * /A13 * /BOOT * /RD
+/RSCS3 = /A5 * /OX
+/TIIN = A5 * /RD * /OX
+/TIOUT = A5 * /WR * /OX
+
+DESCRIPTION:
+Timex Interface GAL30

@@ -1,0 +1,49 @@
+# ============================================================================
+# ZX Spectrum Timex FDD Interface
+# ACTUAL ADDRESS SET FROM ORIGINAL GAL CHIPS
+# ============================================================================
+
+# ============================================================================
+# ZX Spectrum Address Bus (16 pins - actual GAL chip connections)
+# ============================================================================
+
+# Address Bus
+NET "addr[0]"  LOC = "P30";
+NET "addr[1]"  LOC = "P28";
+NET "addr[2]"  LOC = "P12";
+NET "addr[3]"  LOC = "P8";
+NET "addr[4]"  LOC = "P32";
+NET "addr[5]"  LOC = "P33";
+NET "addr[6]"  LOC = "P34";
+NET "addr[7]"  LOC = "P36";
+NET "addr[8]"  LOC = "P38";
+NET "addr[9]"  LOC = "P7";
+NET "addr[10]" LOC = "P6";
+NET "addr[11]" LOC = "P37";
+NET "addr[12]" LOC = "P41";
+NET "addr[13]" LOC = "P5";
+NET "addr[14]" LOC = "P3";
+NET "addr[15]" LOC = "P2";
+
+# ============================================================================
+# ZX Spectrum Control Signals (5 pins)
+# ============================================================================
+
+# Control Signals
+NET "nIORQ" LOC = "P40";
+NET "nMREQ" LOC = "P13";
+NET "nRD"   LOC = "P39";
+NET "nWR"   LOC = "P29";
+NET "nM1"   LOC = "P14";
+
+# ============================================================================
+# Chip Select Outputs (5 pins)
+# ============================================================================
+
+# Output Signals
+NET "nROM_CS"   LOC = "P16";
+NET "nRAM_CS"   LOC = "P18";
+NET "nZX_ROMCS" LOC = "P19";
+NET "LS273"     LOC = "P27";
+NET "nLS244"    LOC = "P31";
+
