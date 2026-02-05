@@ -1,22 +1,17 @@
 # Timex FDD Hardware description
 
 * CPU Z80 microprocessor @4Mhz
-
 * 2K ROM for IPL (101 bytes only)
-
 * 64KB RAM fully paged in after TOS loading routine pages ROM _out_
-
 * WD1770 Floppy Disc Controller
-
 * WD2123 Dual Serial Port Controller
-
 * GAL/ULA/ TTL Glue logic ICs
 
 ## I/O ports
 
  - 0x00 Serial Port baudrate setup
 
- - 0x20 Timex Interface for ZX Spectrum
+ - 0x2F Timex Interface for ZX Spectrum
  
     LS273/LS244 I/O buffer latch pair (same as in interface)
 

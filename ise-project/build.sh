@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o pipefail
 
-MODULE=timex_interface
+MODULE=timex_mainboard
 
 # cleanup
 

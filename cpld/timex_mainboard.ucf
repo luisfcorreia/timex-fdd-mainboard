@@ -1,13 +1,16 @@
-# ============================================================================
-# ZX Spectrum Timex FDD Interface
-# ACTUAL ADDRESS SET FROM ORIGINAL GAL CHIPS
-# ============================================================================
+# ===========================================================================
+# Timex FDD Mainboard CPLD - Pin Constraints
+# Target: Xilinx XC9572XL-VQ64
+# ===========================================================================
 
-# ============================================================================
-# ZX Spectrum Address Bus (16 pins - actual GAL chip connections)
-# ============================================================================
+# ===========================================================================
+# Clock Input
+# ===========================================================================
+NET "clk_16mhz" LOC = "P43";
 
-# Address Bus
+# ===========================================================================
+# Z80 Address Bus (16 pins)
+# ===========================================================================
 NET "addr[0]"  LOC = "P30";
 NET "addr[1]"  LOC = "P28";
 NET "addr[2]"  LOC = "P12";
@@ -25,25 +28,106 @@ NET "addr[13]" LOC = "P5";
 NET "addr[14]" LOC = "P3";
 NET "addr[15]" LOC = "P2";
 
-# ============================================================================
-# ZX Spectrum Control Signals (5 pins)
-# ============================================================================
+# ===========================================================================
+# Z80 Data Bus (8 pins - bidirectional)
+# ===========================================================================
+NET "data[0]" LOC = "P44";
+NET "data[1]" LOC = "P45";
+NET "data[2]" LOC = "P46";
+NET "data[3]" LOC = "P47";
+NET "data[4]" LOC = "P48";
+NET "data[5]" LOC = "P49";
+NET "data[6]" LOC = "P50";
+NET "data[7]" LOC = "P51";
 
-# Control Signals
-NET "nIORQ" LOC = "P40";
-NET "nMREQ" LOC = "P13";
-NET "nRD"   LOC = "P39";
-NET "nWR"   LOC = "P29";
-NET "nM1"   LOC = "P14";
+# ===========================================================================
+# Z80 Control Signals (6 pins)
+# ===========================================================================
+NET "nMREQ"  LOC = "P13";
+NET "nIORQ"  LOC = "P40";
+NET "nRD"    LOC = "P39";
+NET "nWR"    LOC = "P29";
+NET "nM1"    LOC = "P14";
+NET "nRESET" LOC = "P15";
 
-# ============================================================================
-# Chip Select Outputs (5 pins)
-# ============================================================================
+# ===========================================================================
+# Clock Outputs (2 pins)
+# ===========================================================================
+NET "clk_4mhz" LOC = "P24";
+NET "clk_8mhz" LOC = "P23";
 
-# Output Signals
-NET "nROM_CS"   LOC = "P16";
-NET "nRAM_CS"   LOC = "P18";
-NET "nZX_ROMCS" LOC = "P19";
-NET "LS273"     LOC = "P27";
-NET "nLS244"    LOC = "P31";
+# ===========================================================================
+# Chip Select Outputs (4 pins)
+# ===========================================================================
+NET "nRAM_CS"    LOC = "P18";
+NET "nFDC_CS"    LOC = "P20";
+NET "nTIIN"      LOC = "P31";
+NET "nTIOUT"     LOC = "P27";
+
+# ===========================================================================
+# FDC Interface (2 pins)
+# ===========================================================================
+NET "INTRQ" LOC = "P22";
+NET "nINT"  LOC = "P25";
+
+# ===========================================================================
+# External Computer Interface (10 pins)
+# ===========================================================================
+# Data bus to other computer (8 bidirectional)
+NET "ext_data[0]" LOC = "P52";
+NET "ext_data[1]" LOC = "P53";
+NET "ext_data[2]" LOC = "P54";
+NET "ext_data[3]" LOC = "P55";
+NET "ext_data[4]" LOC = "P56";
+NET "ext_data[5]" LOC = "P57";
+NET "ext_data[6]" LOC = "P58";
+NET "ext_data[7]" LOC = "P59";
+
+# Control signals from other computer (2 inputs)
+NET "nEXT_RD" LOC = "P60";
+NET "nEXT_WR" LOC = "P61";
+
+# ===========================================================================
+# Serial Port Chip Selects (2 pins - reserved for future)
+# ===========================================================================
+NET "nSERIAL_CS1" LOC = "P62";
+NET "nSERIAL_CS2" LOC = "P63";
+
+# ===========================================================================
+# 0xE0 Control Latch Outputs (8 pins - FDD control signals)
+# ===========================================================================
+# D0 - FDD Drive select 0
+# D1 - FDD Drive select 1  
+# D2 - FDD Drive select 2 (unused - pin available for other use)
+# D3 - FDD Drive select 3 (unused - pin available for other use)
+# D4 - FDD Drive side select
+# D5 - Double Density (/DDEN)
+# D6 - ROM Disable (internal use, exposed for monitoring)
+# D7 - FDD Drive in use LED
+
+NET "e0_latch_out[0]" LOC = "P9";   # Drive select 0
+NET "e0_latch_out[1]" LOC = "P10";  # Drive select 1
+NET "e0_latch_out[2]" LOC = "P11";  # Drive select 2 (unused)
+NET "e0_latch_out[3]" LOC = "P17";  # Drive select 3 (unused)
+NET "e0_latch_out[4]" LOC = "P19";  # Side select
+NET "e0_latch_out[5]" LOC = "P26";  # Double density
+NET "e0_latch_out[6]" LOC = "P35";  # ROM disable
+NET "e0_latch_out[7]" LOC = "P42";  # Drive LED
+
+# ===========================================================================
+# Reset Output (1 pin - active high)
+# ===========================================================================
+NET "RESET" LOC = "P4";
+
+
+# ===========================================================================
+# Timing Constraints
+# ===========================================================================
+# Input clock
+NET "clk_16mhz" TNM_NET = "clk_16mhz";
+TIMESPEC "TS_clk_16mhz" = PERIOD "clk_16mhz" 62.5 ns HIGH 50%;
+
+# Output clocks
+NET "clk_4mhz" TNM_NET = "clk_4mhz";
+NET "clk_8mhz" TNM_NET = "clk_8mhz";
 

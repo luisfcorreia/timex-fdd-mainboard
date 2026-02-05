@@ -1,45 +1,217 @@
-// Optimized ROM for XC9572XL
-module timex_mainboard (
-    input   cs,
-    input   [6:0] addr,
-    output  [7:0] data
+// ===========================================================================
+// Timex FDD Mainboard CPLD Implementation
+// Target: Xilinx XC9572XL-VQ64
+// ===========================================================================
+// Replaces: 2716 ROM (101 bytes), GAL30 address decoder, clock dividers,
+//           LS244/LS273 interface buffers
+// ===========================================================================
+
+module timex_mainboard_cpld (
+    // Clock input
+    input wire clk_16mhz,
+    
+    // Z80 CPU signals
+    input wire [15:0] addr,
+    inout wire [7:0] data,
+    input wire nMREQ,
+    input wire nIORQ,
+    input wire nRD,
+    input wire nWR,
+    input wire nM1,
+    input wire nRESET,
+    
+    // Clock outputs
+    output wire clk_4mhz,      // CPU clock
+    output wire clk_8mhz,      // FDC clock
+    
+    // Chip select outputs
+    output wire nRAM_CS,
+    output wire nFDC_CS,
+    output wire nTIIN,
+    output wire nTIOUT,
+    
+    // FDC signals
+    input wire INTRQ,
+    output wire nINT,
+    
+    // External computer interface (LS244/LS273 replacement)
+    inout wire [7:0] ext_data,
+    input wire nEXT_RD,        // Other computer reads from us
+    input wire nEXT_WR,        // Other computer writes to us
+    
+    // Serial port pins (reserved for future use)
+    output wire nSERIAL_CS1,
+    output wire nSERIAL_CS2,
+    
+    // 0xE0 Control Latch Outputs (LS273 replacement)
+    // Only outputs for drives 0-1, side select, double density, and LED
+    output wire [7:0] e0_latch_out,
+    
+    // Reset output (non-inverted)
+    output wire RESET
 );
 
-// Use ROM memory initialization
-reg [7:0] rom_mem [0:100];
+// ===========================================================================
+// Clock Generation
+// ===========================================================================
+reg [1:0] clk_div;
 
-// Initialize with your data
-initial begin
-    // Your 101 bytes of data go here
-    rom_mem[0]  = 8'h12; rom_mem[1]  = 8'h34; rom_mem[2]  = 8'h56; rom_mem[3]  = 8'h78;
-    rom_mem[4]  = 8'h9A; rom_mem[5]  = 8'hBC; rom_mem[6]  = 8'hDE; rom_mem[7]  = 8'hF0;
-    rom_mem[8]  = 8'h11; rom_mem[9]  = 8'h22; rom_mem[10] = 8'h33; rom_mem[11] = 8'h44;
-    rom_mem[12] = 8'h55; rom_mem[13] = 8'h66; rom_mem[14] = 8'h77; rom_mem[15] = 8'h88;
-    rom_mem[16] = 8'h99; rom_mem[17] = 8'hAA; rom_mem[18] = 8'hBB; rom_mem[19] = 8'hCC;
-    rom_mem[20] = 8'hDD; rom_mem[21] = 8'hEE; rom_mem[22] = 8'hFF; rom_mem[23] = 8'h00;
-    rom_mem[24] = 8'h10; rom_mem[25] = 8'h20; rom_mem[26] = 8'h30; rom_mem[27] = 8'h40;
-    rom_mem[28] = 8'h50; rom_mem[29] = 8'h60; rom_mem[30] = 8'h70; rom_mem[31] = 8'h80;
-    rom_mem[32] = 8'h90; rom_mem[33] = 8'hA0; rom_mem[34] = 8'hB0; rom_mem[35] = 8'hC0;
-    rom_mem[36] = 8'hD0; rom_mem[37] = 8'hE0; rom_mem[38] = 8'hF0; rom_mem[39] = 8'h01;
-    rom_mem[40] = 8'h02; rom_mem[41] = 8'h03; rom_mem[42] = 8'h04; rom_mem[43] = 8'h05;
-    rom_mem[44] = 8'h06; rom_mem[45] = 8'h07; rom_mem[46] = 8'h08; rom_mem[47] = 8'h09;
-    rom_mem[48] = 8'h0A; rom_mem[49] = 8'h0B; rom_mem[50] = 8'h0C; rom_mem[51] = 8'h0D;
-    rom_mem[52] = 8'h0E; rom_mem[53] = 8'h0F; rom_mem[54] = 8'h1F; rom_mem[55] = 8'h2F;
-    rom_mem[56] = 8'h3F; rom_mem[57] = 8'h4F; rom_mem[58] = 8'h5F; rom_mem[59] = 8'h6F;
-    rom_mem[60] = 8'h7F; rom_mem[61] = 8'h8F; rom_mem[62] = 8'h9F; rom_mem[63] = 8'hAF;
-    rom_mem[64] = 8'hBF; rom_mem[65] = 8'hC0; rom_mem[66] = 8'hD0; rom_mem[67] = 8'hE0;
-    rom_mem[68] = 8'hF0; rom_mem[69] = 8'h00; rom_mem[70] = 8'h01; rom_mem[71] = 8'h02;
-    rom_mem[72] = 8'h03; rom_mem[73] = 8'h04; rom_mem[74] = 8'h05; rom_mem[75] = 8'h06;
-    rom_mem[76] = 8'h07; rom_mem[77] = 8'h08; rom_mem[78] = 8'h09; rom_mem[79] = 8'h0A;
-    rom_mem[80] = 8'h0B; rom_mem[81] = 8'h0C; rom_mem[82] = 8'h0D; rom_mem[83] = 8'h0E;
-    rom_mem[84] = 8'h0F; rom_mem[85] = 8'h10; rom_mem[86] = 8'h20; rom_mem[87] = 8'h30;
-    rom_mem[88] = 8'h40; rom_mem[89] = 8'h50; rom_mem[90] = 8'h60; rom_mem[91] = 8'h70;
-    rom_mem[92] = 8'h80; rom_mem[93] = 8'h90; rom_mem[94] = 8'hA0; rom_mem[95] = 8'hB0;
-    rom_mem[96] = 8'hC0; rom_mem[97] = 8'hD0; rom_mem[98] = 8'hE0; rom_mem[99] = 8'hF0;
-    rom_mem[100] = 8'h00;
+always @(posedge clk_16mhz or negedge nRESET) begin
+    if (!nRESET)
+        clk_div <= 2'b00;
+    else
+        clk_div <= clk_div + 1'b1;
 end
 
-// Output with proper tri-state
-assign data = cs ? 8'bz : rom_mem[addr];
+assign clk_4mhz = clk_div[1];  // Divide by 4
+assign clk_8mhz = clk_div[0];  // Divide by 2
+
+// ===========================================================================
+// Boot ROM - 101 bytes
+// ===========================================================================
+reg [7:0] rom [0:100];
+
+initial begin
+        rom[  0] = 8'hf3; rom[  1] = 8'h31; rom[  2] = 8'hff; rom[  3] = 8'h3e; rom[  4] = 8'h3e; rom[  5] = 8'h00; rom[  6] = 8'hd3; rom[  7] = 8'h20;
+        rom[  8] = 8'h3e; rom[  9] = 8'hd0; rom[ 10] = 8'hd3; rom[ 11] = 8'hc0; rom[ 12] = 8'h3e; rom[ 13] = 8'h01; rom[ 14] = 8'hcd; rom[ 15] = 8'h59;
+        rom[ 16] = 8'h00; rom[ 17] = 8'hdb; rom[ 18] = 8'hc0; rom[ 19] = 8'h3e; rom[ 20] = 8'h9f; rom[ 21] = 8'hd3; rom[ 22] = 8'he0; rom[ 23] = 8'h3e;
+        rom[ 24] = 8'h97; rom[ 25] = 8'hd3; rom[ 26] = 8'he0; rom[ 27] = 8'h3e; rom[ 28] = 8'h9b; rom[ 29] = 8'hd3; rom[ 30] = 8'he0; rom[ 31] = 8'h3e;
+        rom[ 32] = 8'h9d; rom[ 33] = 8'hd3; rom[ 34] = 8'he0; rom[ 35] = 8'h3e; rom[ 36] = 8'h1e; rom[ 37] = 8'hd3; rom[ 38] = 8'he0; rom[ 39] = 8'h3e;
+        rom[ 40] = 8'h00; rom[ 41] = 8'hd3; rom[ 42] = 8'hc0; rom[ 43] = 8'h06; rom[ 44] = 8'h04; rom[ 45] = 8'haf; rom[ 46] = 8'hcd; rom[ 47] = 8'h59;
+        rom[ 48] = 8'h00; rom[ 49] = 8'h10; rom[ 50] = 8'hfa; rom[ 51] = 8'h21; rom[ 52] = 8'h00; rom[ 53] = 8'h3f; rom[ 54] = 8'h0e; rom[ 55] = 8'hc3;
+        rom[ 56] = 8'h06; rom[ 57] = 8'h00; rom[ 58] = 8'hdb; rom[ 59] = 8'hc0; rom[ 60] = 8'hcb; rom[ 61] = 8'h57; rom[ 62] = 8'h28; rom[ 63] = 8'hfa;
+        rom[ 64] = 8'hcb; rom[ 65] = 8'h47; rom[ 66] = 8'h20; rom[ 67] = 8'hf6; rom[ 68] = 8'haf; rom[ 69] = 8'hd3; rom[ 70] = 8'hc2; rom[ 71] = 8'h3e;
+        rom[ 72] = 8'h8c; rom[ 73] = 8'hd3; rom[ 74] = 8'hc0; rom[ 75] = 8'hdb; rom[ 76] = 8'h20; rom[ 77] = 8'h17; rom[ 78] = 8'h30; rom[ 79] = 8'hfb;
+        rom[ 80] = 8'hed; rom[ 81] = 8'ha2; rom[ 82] = 8'h20; rom[ 83] = 8'hf7; rom[ 84] = 8'hdb; rom[ 85] = 8'hc0; rom[ 86] = 8'hc3; rom[ 87] = 8'h00;
+        rom[ 88] = 8'h3f; rom[ 89] = 8'hc5; rom[ 90] = 8'h06; rom[ 91] = 8'h00; rom[ 92] = 8'h00; rom[ 93] = 8'h10; rom[ 94] = 8'hfd; rom[ 95] = 8'h3d;
+        rom[ 96] = 8'h20; rom[ 97] = 8'hf8; rom[ 98] = 8'hc1; rom[ 99] = 8'hc9; rom[100] = 8'hff;
+end
+
+// ===========================================================================
+// 0xE0 Control Latch (LS273 replacement) - FDD Control Register
+// ===========================================================================
+reg [7:0] e0_latch;
+
+always @(posedge clk_4mhz or negedge nRESET) begin
+    if (!nRESET)
+        e0_latch <= 8'h00;
+    else if (!nE0_LATCH)  // Active low write strobe
+        e0_latch <= data;
+end
+
+// Output the latch contents
+assign e0_latch_out = e0_latch;
+
+// BOOT Control - bit 6 of E0 latch disables ROM
+reg boot_latch;
+
+always @(posedge clk_4mhz or negedge nRESET) begin
+    if (!nRESET)
+        boot_latch <= 1'b1;  // Boot mode active on reset
+    else if (e0_latch[6])
+        boot_latch <= 1'b0;  // Disable boot ROM when bit 6 is set
+end
+
+// ===========================================================================
+// Reset Output - inverted nRESET for devices needing active-high reset
+// ===========================================================================
+assign RESET = ~nRESET;
+
+// ===========================================================================
+// Address Decoding Helper Signals (from GAL30)
+// ===========================================================================
+wire cx = addr[7] & addr[6];   // Active low when A7=1 AND A6=1 (0xC0-0xFF)
+wire ox = ~addr[7] & ~addr[6]; // Active low when A7=0 AND A6=0 (0x00-0x3F)
+
+// ===========================================================================
+// Chip Select Signals
+// ===========================================================================
+
+// ROM CS - lower 2KB (A0-A10), only during boot
+assign nROM_CS = ~(!nMREQ && !addr[15] && !addr[14] && !addr[13] && 
+                   !addr[12] && !addr[11] && boot_latch && !nRD);
+
+// RAM CS - Original GAL logic: /RAMSEL = (/A13 * /BOOT * /MREQ) + MREQ
+// During boot: only upper memory (A13=1) is RAM
+// After boot: all memory is RAM
+assign nRAM_CS = ~(!nMREQ && (!boot_latch || addr[13]));
+
+// FDC CS - 0xC0-0xDF (A7=1, A6=1, A5=0)
+assign nFDC_CS = ~(!nIORQ && cx && !addr[5]);
+
+// E0 Latch - 0xE0-0xFF write (A7=1, A6=1, A5=1, WR)
+assign nE0_LATCH = ~(!nIORQ && !nWR && cx && addr[5]);
+
+// Timex Interface - 0x20-0x3F
+assign nTIIN = ~(!nIORQ && !nRD && ox && addr[5]);    // Read from 0x20
+assign nTIOUT = ~(!nIORQ && !nWR && ox && addr[5]);   // Write to 0x20
+
+// Serial ports (reserved)
+assign nSERIAL_CS1 = ~(!nIORQ && ox && !addr[5] && addr[6]); // 0x40
+assign nSERIAL_CS2 = ~(!nIORQ && addr[7] && !addr[6]);       // 0x80
+
+// ===========================================================================
+// Interrupt handling
+// ===========================================================================
+assign nINT = ~INTRQ;
+
+// ===========================================================================
+// External Computer Interface (LS244/LS273 replacement)
+// ===========================================================================
+
+// Output latch (LS273 equivalent) - Z80 writes to 0x20
+reg [7:0] ext_output_latch;
+
+always @(posedge clk_4mhz or negedge nRESET) begin
+    if (!nRESET)
+        ext_output_latch <= 8'h00;
+    else if (!nTIOUT)
+        ext_output_latch <= data;
+end
+
+// Input buffer (LS244 equivalent) - Z80 reads from 0x20
+reg [7:0] ext_input_buffer;
+
+always @(posedge clk_4mhz or negedge nRESET) begin
+    if (!nRESET)
+        ext_input_buffer <= 8'h00;
+    else if (!nEXT_WR)
+        ext_input_buffer <= ext_data;
+end
+
+// External data bus control
+// When other computer reads (nEXT_RD=0), output our latch
+// When other computer writes (nEXT_WR=0), it drives the bus
+assign ext_data = (!nEXT_RD) ? ext_output_latch : 8'bz;
+
+// ===========================================================================
+// Z80 Data Bus Control
+// ===========================================================================
+reg [7:0] data_out;
+wire data_oe;
+
+// Data output multiplexer
+always @(*) begin
+    if (!nROM_CS && boot_latch) begin
+        // Reading from ROM - only when boot mode active
+        if (addr[10:0] <= 11'd100)
+            data_out = rom[addr[6:0]];
+        else
+            data_out = 8'hFF;  // Beyond 101 bytes, return 0xFF
+    end
+    else if (!nTIIN) begin
+        // Reading from interface input buffer
+        // Bit 7 = FDC status (INTRQ), bits 6:0 from external interface
+        data_out = {INTRQ, ext_input_buffer[6:0]};
+    end
+    else
+        data_out = 8'hFF;
+end
+
+// Data output enable - active when reading from ROM (during boot) or interface
+assign data_oe = (!nROM_CS && boot_latch) || !nTIIN;
+
+// Tri-state data bus
+assign data = data_oe ? data_out : 8'bz;
 
 endmodule
