@@ -6,18 +6,17 @@
 //           LS244/LS273 interface buffers
 // ===========================================================================
 
-module timex_mainboard_cpld (
+module timex_mainboard (
     // Clock input
     input wire clk_16mhz,
     
     // Z80 CPU signals
-    input wire [15:0] addr,
+    input wire [7:0] addr,  // Only A0-A7 needed
     inout wire [7:0] data,
     input wire nMREQ,
     input wire nIORQ,
     input wire nRD,
     input wire nWR,
-    input wire nM1,
     input wire nRESET,
     
     // Clock outputs
@@ -35,6 +34,7 @@ module timex_mainboard_cpld (
     output wire nINT,
     
     // External computer interface (LS244/LS273 replacement)
+    // Only 6 bits used: 0,1,2,3,6,7 (bits 4,5 unused)
     inout wire [7:0] ext_data,
     input wire nEXT_RD,        // Other computer reads from us
     input wire nEXT_WR,        // Other computer writes to us
@@ -44,17 +44,53 @@ module timex_mainboard_cpld (
     output wire nSERIAL_CS2,
     
     // 0xE0 Control Latch Outputs (LS273 replacement)
-    // Only outputs for drives 0-1, side select, double density, and LED
-    output wire [7:0] e0_latch_out,
+    // Only expose bits 0,1,4,5,7 - bits 2,3,6 are internal only
+    output wire e0_drive_sel0,    // bit 0
+    output wire e0_drive_sel1,    // bit 1
+    output wire e0_side_sel,      // bit 4
+    output wire e0_dden,          // bit 5
+    output wire e0_led,           // bit 7
     
     // Reset output (non-inverted)
     output wire RESET
 );
 
 // ===========================================================================
-// Clock Generation
+// Registers for everything
 // ===========================================================================
 reg [1:0] clk_div;
+reg [7:0] rom [0:100];
+
+// 0xE0 Control Latch (LS273 replacement) - FDD Control Register
+reg [7:0] e0_latch;
+reg boot_latch;
+
+// Interface to external system
+// Port 0x20
+reg [7:0] ext_output_latch;
+reg [6:0] ext_input_buffer;  // Only 7 bits needed (D0-D6, D7 is INTRQ)
+
+// Z80 databus
+reg [7:0] data_out;
+
+// ===========================================================================
+// Address Decoding Helper Signals (from GAL30)
+// ===========================================================================
+wire cx = addr[7] & addr[6];   // Active low when A7=1 AND A6=1 (0xC0-0xFF)
+wire ox = ~addr[7] & ~addr[6]; // Active low when A7=0 AND A6=0 (0x00-0x3F)
+
+// ROM CS - lower 2KB (A0-A10), only during boot
+wire nROM_CS;
+
+// E0 Latch - 0xE0-0xFF write (A7=1, A6=1, A5=1, WR)
+wire nE0_LATCH;
+
+wire data_oe;
+wire [7:0] rom_data;
+
+// ===========================================================================
+// Clock Generation
+// ===========================================================================
 
 always @(posedge clk_16mhz or negedge nRESET) begin
     if (!nRESET)
@@ -69,8 +105,6 @@ assign clk_8mhz = clk_div[0];  // Divide by 2
 // ===========================================================================
 // Boot ROM - 101 bytes
 // ===========================================================================
-reg [7:0] rom [0:100];
-
 initial begin
         rom[  0] = 8'hf3; rom[  1] = 8'h31; rom[  2] = 8'hff; rom[  3] = 8'h3e; rom[  4] = 8'h3e; rom[  5] = 8'h00; rom[  6] = 8'hd3; rom[  7] = 8'h20;
         rom[  8] = 8'h3e; rom[  9] = 8'hd0; rom[ 10] = 8'hd3; rom[ 11] = 8'hc0; rom[ 12] = 8'h3e; rom[ 13] = 8'h01; rom[ 14] = 8'hcd; rom[ 15] = 8'h59;
@@ -87,59 +121,21 @@ initial begin
         rom[ 96] = 8'h20; rom[ 97] = 8'hf8; rom[ 98] = 8'hc1; rom[ 99] = 8'hc9; rom[100] = 8'hff;
 end
 
-// ===========================================================================
-// 0xE0 Control Latch (LS273 replacement) - FDD Control Register
-// ===========================================================================
-reg [7:0] e0_latch;
-
-always @(posedge clk_4mhz or negedge nRESET) begin
-    if (!nRESET)
-        e0_latch <= 8'h00;
-    else if (!nE0_LATCH)  // Active low write strobe
-        e0_latch <= data;
-end
-
-// Output the latch contents
-assign e0_latch_out = e0_latch;
-
-// BOOT Control - bit 6 of E0 latch disables ROM
-reg boot_latch;
-
-always @(posedge clk_4mhz or negedge nRESET) begin
-    if (!nRESET)
-        boot_latch <= 1'b1;  // Boot mode active on reset
-    else if (e0_latch[6])
-        boot_latch <= 1'b0;  // Disable boot ROM when bit 6 is set
-end
-
-// ===========================================================================
-// Reset Output - inverted nRESET for devices needing active-high reset
-// ===========================================================================
-assign RESET = ~nRESET;
-
-// ===========================================================================
-// Address Decoding Helper Signals (from GAL30)
-// ===========================================================================
-wire cx = addr[7] & addr[6];   // Active low when A7=1 AND A6=1 (0xC0-0xFF)
-wire ox = ~addr[7] & ~addr[6]; // Active low when A7=0 AND A6=0 (0x00-0x3F)
+// ROM data output
+assign rom_data = (addr[6:0] <= 7'd100) ? rom[addr[6:0]] : 8'hFF;
 
 // ===========================================================================
 // Chip Select Signals
 // ===========================================================================
 
-// ROM CS - lower 2KB (A0-A10), only during boot
-assign nROM_CS = ~(!nMREQ && !addr[15] && !addr[14] && !addr[13] && 
-                   !addr[12] && !addr[11] && boot_latch && !nRD);
+assign nROM_CS = ~(!nMREQ && boot_latch && !nRD);
 
-// RAM CS - Original GAL logic: /RAMSEL = (/A13 * /BOOT * /MREQ) + MREQ
-// During boot: only upper memory (A13=1) is RAM
-// After boot: all memory is RAM
-assign nRAM_CS = ~(!nMREQ && (!boot_latch || addr[13]));
+// RAM CS - After boot: always active; During boot: disabled
+assign nRAM_CS = ~(!nMREQ && !boot_latch);
 
 // FDC CS - 0xC0-0xDF (A7=1, A6=1, A5=0)
 assign nFDC_CS = ~(!nIORQ && cx && !addr[5]);
 
-// E0 Latch - 0xE0-0xFF write (A7=1, A6=1, A5=1, WR)
 assign nE0_LATCH = ~(!nIORQ && !nWR && cx && addr[5]);
 
 // Timex Interface - 0x20-0x3F
@@ -155,53 +151,95 @@ assign nSERIAL_CS2 = ~(!nIORQ && addr[7] && !addr[6]);       // 0x80
 // ===========================================================================
 assign nINT = ~INTRQ;
 
+always @(posedge clk_4mhz or negedge nRESET) begin
+    if (!nRESET) begin
+        e0_latch <= 8'h00;
+        boot_latch <= 1'b1;  // Boot mode active on reset
+    end
+    else begin
+        if (!nE0_LATCH)  // Active low write strobe
+            e0_latch <= data;
+        
+        // BOOT Control - bit 6 of E0 latch disables ROM (sticky)
+        if (e0_latch[6])
+            boot_latch <= 1'b0;  // Disable boot ROM when bit 6 is set
+    end
+end
+
+// Mapping: FDD D0-D3,D4,D6 -> ext_data[0-3,7,6]
+
+// Output the latch contents to external pins (only bits 0,1,4,5,7)
+assign e0_drive_sel0 = e0_latch[0];
+assign e0_drive_sel1 = e0_latch[1];
+assign e0_side_sel   = e0_latch[4];
+assign e0_dden       = e0_latch[5];
+assign e0_led        = e0_latch[7];
+// Bits 2,3,6 are internal only
+
+// ===========================================================================
+// Reset Output - inverted nRESET for devices needing active-high reset
+// ===========================================================================
+assign RESET = ~nRESET;
+
 // ===========================================================================
 // External Computer Interface (LS244/LS273 replacement)
 // ===========================================================================
-
-// Output latch (LS273 equivalent) - Z80 writes to 0x20
-reg [7:0] ext_output_latch;
-
 always @(posedge clk_4mhz or negedge nRESET) begin
     if (!nRESET)
         ext_output_latch <= 8'h00;
-    else if (!nTIOUT)
-        ext_output_latch <= data;
+    else if (!nTIOUT) begin
+        ext_output_latch[0] <= data[0];  // FDD D0 -> ext D0
+        ext_output_latch[1] <= data[1];  // FDD D1 -> ext D1
+        ext_output_latch[2] <= data[2];  // FDD D2 -> ext D2
+        ext_output_latch[3] <= data[3];  // FDD D3 -> ext D3
+        ext_output_latch[6] <= data[6];  // FDD D6 -> ext D6
+        ext_output_latch[7] <= data[4];  // FDD D4 -> ext D7
+        // ext bits 4,5 unused
+    end
 end
 
-// Input buffer (LS244 equivalent) - Z80 reads from 0x20
-reg [7:0] ext_input_buffer;
+// Input buffer (LS244 equivalent) - External writes, Z80 reads from 0x20
+// Mapping: ext_data[0-3,7,6] -> FDD D0-D3,D4,D6
 
 always @(posedge clk_4mhz or negedge nRESET) begin
     if (!nRESET)
-        ext_input_buffer <= 8'h00;
-    else if (!nEXT_WR)
-        ext_input_buffer <= ext_data;
+        ext_input_buffer <= 7'h00;
+    else if (!nEXT_WR) begin
+        ext_input_buffer[0] <= ext_data[0];  // ext D0 -> FDD D0
+        ext_input_buffer[1] <= ext_data[1];  // ext D1 -> FDD D1
+        ext_input_buffer[2] <= ext_data[2];  // ext D2 -> FDD D2
+        ext_input_buffer[3] <= ext_data[3];  // ext D3 -> FDD D3
+        ext_input_buffer[4] <= ext_data[7];  // ext D7 -> FDD D4
+        ext_input_buffer[6] <= ext_data[6];  // ext D6 -> FDD D6
+        // FDD D5 never used
+    end
 end
 
-// External data bus control
+// External data bus control - only drive used bits
 // When other computer reads (nEXT_RD=0), output our latch
 // When other computer writes (nEXT_WR=0), it drives the bus
-assign ext_data = (!nEXT_RD) ? ext_output_latch : 8'bz;
+assign ext_data[0] = (!nEXT_RD) ? ext_output_latch[0] : 1'bz;
+assign ext_data[1] = (!nEXT_RD) ? ext_output_latch[1] : 1'bz;
+assign ext_data[2] = (!nEXT_RD) ? ext_output_latch[2] : 1'bz;
+assign ext_data[3] = (!nEXT_RD) ? ext_output_latch[3] : 1'bz;
+assign ext_data[4] = 1'bz;  // Unused
+assign ext_data[5] = 1'bz;  // Unused
+assign ext_data[6] = (!nEXT_RD) ? ext_output_latch[6] : 1'bz;
+assign ext_data[7] = (!nEXT_RD) ? ext_output_latch[7] : 1'bz;
 
 // ===========================================================================
 // Z80 Data Bus Control
 // ===========================================================================
-reg [7:0] data_out;
-wire data_oe;
 
 // Data output multiplexer
 always @(*) begin
     if (!nROM_CS && boot_latch) begin
         // Reading from ROM - only when boot mode active
-        if (addr[10:0] <= 11'd100)
-            data_out = rom[addr[6:0]];
-        else
-            data_out = 8'hFF;  // Beyond 101 bytes, return 0xFF
+        data_out = rom_data;
     end
     else if (!nTIIN) begin
         // Reading from interface input buffer
-        // Bit 7 = FDC status (INTRQ), bits 6:0 from external interface
+        // Bit 7 = FDC status (INTRQ), bits 0-6 from external interface (remapped)
         data_out = {INTRQ, ext_input_buffer[6:0]};
     end
     else

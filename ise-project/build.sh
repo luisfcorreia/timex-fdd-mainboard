@@ -13,13 +13,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-ngdbuild -p xc9572xl-vq44 $MODULE.ngc
+ngdbuild -p xc9572xl-vq64 $MODULE.ngc
 if [ $? -ne 0 ]; then
     echo "Error: ngdbuild failed"
     exit 1
 fi
 
-cpldfit -p xc9572xl-10-vq44 $MODULE.ngd
+cpldfit -p xc9572xl-10-vq64 $MODULE.ngd
 if [ $? -ne 0 ]; then
     echo "Error: cpldfit failed"
     exit 1
@@ -32,4 +32,4 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "#####"
-stat -c "%n: %s bytes" timex_interface.jed
+stat -c "%n: %s bytes" $MODULE.jed
