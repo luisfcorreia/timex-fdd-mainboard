@@ -55,10 +55,10 @@ NET "nRESET" LOC = "P27";
 # ===========================================================================
 # Chip Select Outputs (4 pins)
 # ===========================================================================
-NET "nRAM_CS"    LOC = "P31";
-NET "nFDC_CS"    LOC = "P32";
-NET "nTIIN"      LOC = "P33";
-NET "nTIOUT"     LOC = "P34";
+NET "nRAM_CS" LOC = "P31";
+NET "nFDC_CS" LOC = "P32";
+NET "nTIIN"   LOC = "P33";
+NET "nTIOUT"  LOC = "P34";
 
 # ===========================================================================
 # FDC Interface (2 pins)
@@ -81,10 +81,11 @@ NET "nEXT_RD" LOC = "P48";
 NET "nEXT_WR" LOC = "P51";
 
 # ===========================================================================
-# Serial Port Chip Selects (2 pins - reserved)
+# Serial Port Chip Selects (3 pins - reserved)
 # ===========================================================================
-NET "nSERIAL_CS1" LOC = "P52";
-NET "nSERIAL_CS2" LOC = "P56";
+NET "nSERIAL_CS1" LOC = "P52";  # 0x40 - Serial port 1
+NET "nSERIAL_CS2" LOC = "P56";  # 0x80 - Serial port 2
+NET "nSERIAL_CS3" LOC = "P20";  # 0x00 - Baud rate (RSCS3)
 
 # ===========================================================================
 # 0xE0 Control Latch Outputs (5 pins)
