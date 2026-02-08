@@ -5,7 +5,6 @@
 // Replaces: 2716 ROM (101 bytes), GAL30 address decoder, clock dividers,
 //           LS244/LS273 interface buffers
 // ===========================================================================
-
 module timex_mainboard (
     // Clock input
     input wire clk_16mhz,
@@ -54,54 +53,42 @@ module timex_mainboard (
     // Reset output (non-inverted)
     output wire RESET
 );
-
 // ===========================================================================
 // Registers for everything
 // ===========================================================================
 reg [1:0] clk_div;
 reg [7:0] rom [0:100];
-
 // 0xE0 Control Latch (LS273 replacement) - FDD Control Register
 reg [7:0] e0_latch;
 reg boot_latch;
-
 // Interface to external system
 // Port 0x20
 reg [7:0] ext_output_latch;
 reg [6:0] ext_input_buffer;  // Only 7 bits needed (D0-D6, D7 is INTRQ)
-
 // Z80 databus
 reg [7:0] data_out;
-
 // ===========================================================================
 // Address Decoding Helper Signals (from GAL30)
 // ===========================================================================
 wire cx = addr[7] & addr[6];   // Active low when A7=1 AND A6=1 (0xC0-0xFF)
 wire ox = ~addr[7] & ~addr[6]; // Active low when A7=0 AND A6=0 (0x00-0x3F)
-
 // ROM CS - lower 2KB (A0-A10), only during boot
 wire nROM_CS;
-
 // E0 Latch - 0xE0-0xFF write (A7=1, A6=1, A5=1, WR)
 wire nE0_LATCH;
-
 wire data_oe;
 wire [7:0] rom_data;
-
 // ===========================================================================
 // Clock Generation
 // ===========================================================================
-
 always @(posedge clk_16mhz or negedge nRESET) begin
     if (!nRESET)
         clk_div <= 2'b00;
     else
         clk_div <= clk_div + 1'b1;
 end
-
 assign clk_4mhz = clk_div[1];  // Divide by 4
 assign clk_8mhz = clk_div[0];  // Divide by 2
-
 // ===========================================================================
 // Boot ROM - 101 bytes
 // ===========================================================================
@@ -120,37 +107,27 @@ initial begin
         rom[ 88] = 8'h3f; rom[ 89] = 8'hc5; rom[ 90] = 8'h06; rom[ 91] = 8'h00; rom[ 92] = 8'h00; rom[ 93] = 8'h10; rom[ 94] = 8'hfd; rom[ 95] = 8'h3d;
         rom[ 96] = 8'h20; rom[ 97] = 8'hf8; rom[ 98] = 8'hc1; rom[ 99] = 8'hc9; rom[100] = 8'hff;
 end
-
 // ROM data output
 assign rom_data = (addr[6:0] <= 7'd100) ? rom[addr[6:0]] : 8'hFF;
-
 // ===========================================================================
 // Chip Select Signals
 // ===========================================================================
-
 assign nROM_CS = ~(!nMREQ && boot_latch && !nRD);
-
 // RAM CS - After boot: always active; During boot: disabled
 assign nRAM_CS = ~(!nMREQ && !boot_latch);
-
 // FDC CS - 0xC0-0xDF (A7=1, A6=1, A5=0)
 assign nFDC_CS = ~(!nIORQ && cx && !addr[5]);
-
 assign nE0_LATCH = ~(!nIORQ && !nWR && cx && addr[5]);
-
 // Timex Interface - 0x20-0x3F
 assign nTIIN = ~(!nIORQ && !nRD && ox && addr[5]);    // Read from 0x20
 assign nTIOUT = ~(!nIORQ && !nWR && ox && addr[5]);   // Write to 0x20
-
 // Serial ports (reserved)
 assign nSERIAL_CS1 = ~(!nIORQ && ox && !addr[5] && addr[6]); // 0x40
 assign nSERIAL_CS2 = ~(!nIORQ && addr[7] && !addr[6]);       // 0x80
-
 // ===========================================================================
 // Interrupt handling
 // ===========================================================================
 assign nINT = ~INTRQ;
-
 always @(posedge clk_4mhz or negedge nRESET) begin
     if (!nRESET) begin
         e0_latch <= 8'h00;
@@ -165,9 +142,7 @@ always @(posedge clk_4mhz or negedge nRESET) begin
             boot_latch <= 1'b0;  // Disable boot ROM when bit 6 is set
     end
 end
-
 // Mapping: FDD D0-D3,D4,D6 -> ext_data[0-3,7,6]
-
 // Output the latch contents to external pins (only bits 0,1,4,5,7)
 assign e0_drive_sel0 = e0_latch[0];
 assign e0_drive_sel1 = e0_latch[1];
@@ -175,12 +150,10 @@ assign e0_side_sel   = e0_latch[4];
 assign e0_dden       = e0_latch[5];
 assign e0_led        = e0_latch[7];
 // Bits 2,3,6 are internal only
-
 // ===========================================================================
 // Reset Output - inverted nRESET for devices needing active-high reset
 // ===========================================================================
 assign RESET = ~nRESET;
-
 // ===========================================================================
 // External Computer Interface (LS244/LS273 replacement)
 // ===========================================================================
@@ -197,10 +170,8 @@ always @(posedge clk_4mhz or negedge nRESET) begin
         // ext bits 4,5 unused
     end
 end
-
 // Input buffer (LS244 equivalent) - External writes, Z80 reads from 0x20
 // Mapping: ext_data[0-3,7,6] -> FDD D0-D3,D4,D6
-
 always @(posedge clk_4mhz or negedge nRESET) begin
     if (!nRESET)
         ext_input_buffer <= 7'h00;
@@ -214,7 +185,6 @@ always @(posedge clk_4mhz or negedge nRESET) begin
         // FDD D5 never used
     end
 end
-
 // External data bus control - only drive used bits
 // When other computer reads (nEXT_RD=0), output our latch
 // When other computer writes (nEXT_WR=0), it drives the bus
@@ -226,11 +196,9 @@ assign ext_data[4] = 1'bz;  // Unused
 assign ext_data[5] = 1'bz;  // Unused
 assign ext_data[6] = (!nEXT_RD) ? ext_output_latch[6] : 1'bz;
 assign ext_data[7] = (!nEXT_RD) ? ext_output_latch[7] : 1'bz;
-
 // ===========================================================================
 // Z80 Data Bus Control
 // ===========================================================================
-
 // Data output multiplexer
 always @(*) begin
     if (!nROM_CS && boot_latch) begin
@@ -245,11 +213,8 @@ always @(*) begin
     else
         data_out = 8'hFF;
 end
-
 // Data output enable - active when reading from ROM (during boot) or interface
 assign data_oe = (!nROM_CS && boot_latch) || !nTIIN;
-
 // Tri-state data bus
 assign data = data_oe ? data_out : 8'bz;
-
 endmodule
